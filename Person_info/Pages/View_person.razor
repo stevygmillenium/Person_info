@@ -1,0 +1,100 @@
+﻿@page "/View_person"
+@inject NavigationManager nav_m
+<h3>View_person</h3>
+<form method="post" @onsubmit="()=>ret_upd('r')">
+    <input type="text" @bind="per.name" placeholder="name" /><br />
+    <input type="email" @bind-value="email" placeholder="email" /><br />
+    <input type="tel" @bind="per.phone" placeholder="tele" /><br />
+    <input type="datetime" @bind="per.d_o_b" placeholder="d o b" /><br />
+    <textarea @bind="addr_info" placeholder="primary line,secondary line,city,state or parish,zip or postal code,country"></textarea>
+    <input type="submit" />
+</form>
+<button @onclick="()=>ret_upd('u')">upd</button>
+<button @onclick="navi">del</button>
+@code {
+    string email;
+    int id;
+    Add_person.person per = new Add_person.person();
+    string addr_info;
+    public void navi()
+    {
+        nav_m.NavigateTo($"/Rem_per/{id}");
+    }
+}
+@functions{
+    public void ret_upd(char opt){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        if (opt == 'r')
+        {
+            sqlCommand.CommandText = "select * from per_Table where email='" + email + "'";
+            SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+            sqlDataReader.Read();
+            id = (int)sqlDataReader["Id"];
+            per.name =(string) sqlDataReader["per_name"];
+            per.email =(string) sqlDataReader["email"];
+            per.phone =(string) sqlDataReader["phone"];
+            per.d_o_b =(DateTime) sqlDataReader["d_o_b"];
+            string addr_x =(string) sqlDataReader["addresses_info"];
+            per.addresses = new List<Add_person.address>();
+            XmlDocument xmlDocument = new XmlDocument();
+            xmlDocument.LoadXml(addr_x);
+            foreach (XmlNode xmlNode in xmlDocument.SelectNodes("/ArrayOfAddress/address"))
+            {
+                per.addresses.Add(new Add_person.address
+                    {
+                        prim_line = xmlNode["prim_line"].InnerText,
+                        sec_line = xmlNode["sec_line"].InnerText,
+                        city = xmlNode["city"].InnerText,
+                        stat_par = xmlNode["stat_par"].InnerText,
+                        zip_post_c = xmlNode["zip_post_c"].InnerText,
+                        country = xmlNode["country"].InnerText
+                    });
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach(Add_person.address address in per.addresses)
+            {
+                stringBuilder.AppendLine(address.prim_line + "," + address.sec_line + "," + address.city + "," + address.stat_par + "," + address.zip_post_c + "," + address.country);
+            }
+            addr_info = stringBuilder.ToString();
+        }
+        else if (opt == 'u')
+        {
+            sqlCommand.CommandText = "update per_Table set per_name=@per_name,email=@email,phone=@phone,d_o_b=@d_o_b,addresses_info=@addresses_info where email='" + email + "'";
+            sqlCommand.Parameters.AddWithValue("@per_name", per.name);
+            sqlCommand.Parameters.AddWithValue("@email", per.email);
+            sqlCommand.Parameters.AddWithValue("@phone", per.phone);
+            sqlCommand.Parameters.AddWithValue("@d_o_b", per.d_o_b);
+            sqlCommand.Parameters.AddWithValue("@addresses_info", SqlDbType.Xml);
+            List<Add_person.address> addresses = new List<Add_person.address>();
+            string[] lines = addr_info.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string[] line = lines[i].Split(',');
+                Add_person.address addr = new Add_person.address();
+                addr.prim_line = line[0];
+                addr.sec_line = line[1];
+                addr.city = line[2];
+                addr.stat_par = line[3];
+                addr.zip_post_c = line[4];
+                addr.country = line[5];
+                addresses.Add(addr);
+            }
+            XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<Add_person.address>));
+            XmlDocument xmlDocument = new XmlDocument();
+            MemoryStream memoryStream = new MemoryStream();
+            StreamWriter streamWriter = new StreamWriter(memoryStream, Encoding.GetEncoding("utf-16"));
+            xmlSerializer.Serialize(streamWriter, addresses);
+            memoryStream.Position = 0;
+            xmlDocument.Load(memoryStream);
+            sqlCommand.Parameters["@addresses_info"].Value = xmlDocument.InnerXml;
+            sqlCommand.ExecuteNonQuery();
+            sqlConnection.Close();
+        }
+        else { }
+    }
+}

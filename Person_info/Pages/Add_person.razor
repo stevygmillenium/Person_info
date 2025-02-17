@@ -1,0 +1,72 @@
+﻿@page "/Add_person"
+<h3>Add_person</h3>
+<form method="post" @onsubmit="save_data">
+    <input type="text" @bind-value="per.name" placeholder="name" /><br />
+    <input type="email" @bind-value="per.email" placeholder="email" /><br />
+    <input type="tel" @bind-value="per.phone" placeholder="tele" /><br />
+    <input type="datetime" @bind-value="per.d_o_b" placeholder="d o b" /><br />
+    <textarea @bind="addr_info" placeholder="primary line,secondary line,city,state or parish,zip or postal code,country"></textarea>    
+    <input type="submit" />
+</form>
+@code {
+    public class person
+    {
+        public string name{ get; set; }
+        public string email { get; set; }
+        public string phone { get; set; }
+        public DateTime d_o_b{ get; set; }
+        public List<address> addresses { get; set; }
+    }
+    public class address
+    {
+        public string prim_line { get; set; }
+        public string sec_line { get; set; }
+        public string city { get; set; }
+        public string stat_par { get; set; }
+        public string zip_post_c { get; set; }
+        public string country{ get; set; }
+    }
+    person per = new person();
+    string addr_info;
+}
+@functions{
+    public void save_data(){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        sqlCommand.CommandText = "insert into per_Table (per_name,email,phone,d_o_b,addresses_info) values (@per_name,@email,@phone,@d_o_b,@addresses_info)";
+        sqlCommand.Parameters.AddWithValue("@per_name", per.name);
+        sqlCommand.Parameters.AddWithValue("@email", per.email);
+        sqlCommand.Parameters.AddWithValue("@phone", per.phone);
+        sqlCommand.Parameters.AddWithValue("@d_o_b", per.d_o_b);
+        sqlCommand.Parameters.AddWithValue("@addresses_info", SqlDbType.Xml);
+        List<address> addresses = new List<address>();
+        string[] lines = addr_info.Split('\n');
+        for(int i = 0; i < lines.Length; i++)
+        {
+            string[] line = lines[i].Split(',');
+            address addr = new address();
+            addr.prim_line = line[0];
+            addr.sec_line = line[1];
+            addr.city = line[2];
+            addr.stat_par = line[3];
+            addr.zip_post_c = line[4];
+            addr.country = line[5];
+            addresses.Add(addr);
+        }
+        XmlSerializer xmlSerializer = new XmlSerializer(typeof(List<address>));
+        XmlDocument xmlDocument = new XmlDocument();
+        MemoryStream memoryStream = new MemoryStream();
+        StreamWriter streamWriter = new StreamWriter(memoryStream, Encoding.GetEncoding("utf-16"));
+        xmlSerializer.Serialize(streamWriter, addresses);
+        memoryStream.Position = 0;
+        xmlDocument.Load(memoryStream);
+        sqlCommand.Parameters["@addresses_info"].Value = xmlDocument.InnerXml;
+        sqlCommand.ExecuteNonQuery();
+        sqlConnection.Close();
+        //Console.WriteLine(xmlDocument.InnerXml);
+    }
+}

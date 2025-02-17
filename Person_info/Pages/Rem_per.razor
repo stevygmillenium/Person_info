@@ -1,0 +1,21 @@
+﻿@page "/Rem_per/{id}"
+<h3>Rem_per</h3>
+<label></label>
+<button @onclick="del_data">del</button>
+@code {
+    [Parameter]
+    public int id{ get; set; }
+}
+@functions{
+    public void del_data(){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        sqlCommand.CommandText = "delete from per_Table where id="+id;
+        sqlCommand.ExecuteNonQuery();
+        sqlConnection.Close();
+    }
+}
