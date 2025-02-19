@@ -1,6 +1,6 @@
-﻿@page "/Rem_per/{id}"
+﻿@page "/Rem_per/{id:int}"
 <h3>Rem_per</h3>
-<label></label>
+<label>@id</label>
 <button @onclick="del_data">del</button>
 @code {
     [Parameter]

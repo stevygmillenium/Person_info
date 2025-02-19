@@ -1,0 +1,67 @@
+﻿@page "/View_only"
+<h3>View_only</h3>
+<input type="text" @bind="per.name" placeholder="name" /><br />
+<input type="email" @bind-value="email" placeholder="email" /><br />
+<input type="tel" @bind="per.phone" placeholder="tele" /><br />
+<input type="datetime" @bind="per.d_o_b" placeholder="d o b" /><br />
+<input id="hf" type="hidden" @bind="addr_info" />
+<button @onclick="ret_data">ret</button>
+<script type="text/javascript">
+    function ret_data() {
+        var addr = JSON.parse(document.getElementById("hf").value);
+        var sel = document.getElementById("sel");
+        for (var i = 0; i < addr.length; i++) {
+            var option = document.createElement("option");
+            option.text = addr[i].prim_line;
+            option.value = addr[i].prim_line + "," + addr[i].sec_line + "," + addr[i].city + "," + addr[i].stat_par + "," + addr[i].zip_post_c + "," + addr[i].country;
+            sel.appendChild(option);
+        }
+    }
+    function show_data() {
+        window.alert(document.getElementById("sel").value);
+    }
+</script>
+<button onclick="ret_data()">bind addr</button>
+<button onclick="show_data()">show addr</button>
+<select id="sel"></select>
+@code {
+    string email;
+    //int id;
+    Add_person.person per = new Add_person.person();
+    string addr_info;
+}
+@functions{
+    public void ret_data(){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        sqlCommand.CommandText = "select * from per_Table where email='" + email + "'";
+        SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+        sqlDataReader.Read();
+        //id = (int)sqlDataReader["Id"];
+        per.name = (string)sqlDataReader["per_name"];
+        per.email = (string)sqlDataReader["email"];
+        per.phone = (string)sqlDataReader["phone"];
+        per.d_o_b = (DateTime)sqlDataReader["d_o_b"];
+        string addr_x = (string)sqlDataReader["addresses_info"];
+        per.addresses = new List<Add_person.address>();
+        XmlDocument xmlDocument = new XmlDocument();
+        xmlDocument.LoadXml(addr_x);
+        foreach (XmlNode xmlNode in xmlDocument.SelectNodes("/ArrayOfAddress/address"))
+        {
+            per.addresses.Add(new Add_person.address
+                {
+                    prim_line = xmlNode["prim_line"].InnerText,
+                    sec_line = xmlNode["sec_line"].InnerText,
+                    city = xmlNode["city"].InnerText,
+                    stat_par = xmlNode["stat_par"].InnerText,
+                    zip_post_c = xmlNode["zip_post_c"].InnerText,
+                    country = xmlNode["country"].InnerText
+                });
+        }
+        addr_info = JsonSerializer.Serialize(per.addresses);
+    }
+}
