@@ -8,6 +8,21 @@
     <textarea @bind="addr_info" placeholder="primary line,secondary line,city,state or parish,zip or postal code,country"></textarea>    
     <input type="submit" />
 </form>
+<hr />
+<script>
+    function get_data() {
+        var input = document.getElementById("csv_file");
+        var file = input.files[0];
+        var reader = new FileReader();
+        reader.addEventListener('load', (event) => {
+            //window.alert(event.target.result);
+            var cont = event.target.result;
+            DotNet.invokeMethodAsync('Person_info', 'get_cont', cont);
+        });
+        reader.readAsText(file);
+    }
+</script>
+<input id="csv_file" type="file" onchange="get_data()" />
 @code {
     public class person
     {
@@ -68,5 +83,46 @@
         sqlCommand.ExecuteNonQuery();
         sqlConnection.Close();
         //Console.WriteLine(xmlDocument.InnerXml);
+    }
+    [JSInvokable]
+    public static void get_cont(string data){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        List<person> people = new List<person>();
+        string[] lines = data.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string[] line = lines[i].Split(',');
+            person per = new person()
+            {
+                name=line[0],
+                email=line[1],
+                phone=line[2],
+                d_o_b=Convert.ToDateTime(line[3])
+            };
+            people.Add(per);
+        }
+        DataTable dataTable = new DataTable();
+        dataTable.Columns.Add(nameof(person.name), typeof(string));
+        dataTable.Columns.Add(nameof(person.email), typeof(string));
+        dataTable.Columns.Add(nameof(person.phone), typeof(string));
+        dataTable.Columns.Add(nameof(person.d_o_b), typeof(DateTime));
+        foreach(person per in people)
+        {
+            dataTable.Rows.Add(per.name, per.email, per.phone, per.d_o_b);
+        }
+        SqlBulkCopy sqlBulkCopy = new SqlBulkCopy(sqlConnection);
+        sqlBulkCopy.DestinationTableName = "per_Table";
+        sqlBulkCopy.ColumnMappings.Add("name", "per_name");
+        sqlBulkCopy.ColumnMappings.Add("email", "email");
+        sqlBulkCopy.ColumnMappings.Add("phone", "phone");
+        sqlBulkCopy.ColumnMappings.Add("d_o_b", "d_o_b");
+        sqlBulkCopy.WriteToServer(dataTable);
+        sqlConnection.Close();
+        //Console.WriteLine(data);
     }
 }

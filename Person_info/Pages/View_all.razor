@@ -1,0 +1,44 @@
+﻿@page "/View_all"
+@inject IJSRuntime js_r;
+<h3>View_all</h3>
+<script>
+    function get_arr(arr) {
+        var data = JSON.parse(arr);
+        var sel = document.getElementById("sel");
+        sel.addEventListener('change', (event) => {
+            document.getElementById("em").value = document.getElementById("sel").value;
+        });
+        for (var i = 0; i < data.length;i++){            
+            var option = document.createElement("option");
+            var em = data[i];
+            option.text = em;
+            option.value = em;
+            sel.appendChild(option);
+        }
+    }    
+</script>
+<select id="sel"></select>
+<button @onclick="ret_data">bind em</button>
+<input id="em" type="email" @bind-value="email" />
+@code {
+    string email;
+}
+@functions{
+    public async Task ret_data(){
+        var builder = WebApplication.CreateBuilder();
+        string constr = builder.Configuration.GetConnectionString("Default");
+        SqlConnection sqlConnection = new SqlConnection(constr);
+        sqlConnection.Open();
+        SqlCommand sqlCommand = new SqlCommand(constr, sqlConnection);
+        sqlCommand.Connection = sqlConnection;
+        sqlCommand.CommandText = "select email from per_Table";
+        SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+        List<string> strings = new List<string>();
+        while (sqlDataReader.Read())
+        {
+            string em =(string) sqlDataReader["email"];
+            strings.Add(em);
+        }        
+        await js_r.InvokeVoidAsync("get_arr", JsonSerializer.Serialize(strings));
+    }
+}
